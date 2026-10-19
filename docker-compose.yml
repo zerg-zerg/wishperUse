@@ -1,0 +1,39 @@
+version: '3.8'
+
+networks:
+  voice-network:
+    driver: bridge
+
+services:
+  # --- Сервер распознавания речи Whisper (CPU) ---
+  whisper:
+    image: hwdsl2/whisper-server:latest
+    container_name: whisper-server
+    restart: unless-stopped
+    networks:
+      - voice-network
+    ports:
+      - "9000:9000" # API Whisper (для отладки, можно убрать)
+    volumes:
+      - ./data:/var/lib/whisper
+    environment:
+      - WHISPER_MODEL=base
+      - WHISPER_LANGUAGE=ru
+
+  # --- Веб-приложение для записи с телефона ---
+  voice-web:
+    build: ./voice-app
+    container_name: voice-web
+    restart: unless-stopped
+    networks:
+      - voice-network
+    ports:
+      - "8760:5000"
+    depends_on:
+      - whisper
+    environment:
+      - WHISPER_URL=http://whisper:9000/v1/audio/transcriptions
+      # ⚠️ Укажите реальный адрес ВАШЕГО Joplin Server
+      - JOPLIN_SERVER_URL=${JOPLIN_SERVER_URL}
+      - JOPLIN_API_TOKEN=${JOPLIN_API_TOKEN}
+      - NOTEBOOK_ID=${NOTEBOOK_ID}
