@@ -1,14 +1,17 @@
+# -*- coding: utf-8 -*-
 import os
 import tempfile
 from flask import Flask, request, render_template_string
 import requests
-from joppy.client_api import ClientApi
+from joppy.server_api import ServerApi
 
 app = Flask(__name__)
 
 WHISPER_URL = os.environ.get("WHISPER_URL", "http://whisper:9000/v1/audio/transcriptions")
+WHISPER_API_KEY = os.environ.get("WHISPER_API_KEY", "")
 JOPLIN_SERVER_URL = os.environ.get("JOPLIN_SERVER_URL", "")
-JOPLIN_API_TOKEN = os.environ.get("JOPLIN_API_TOKEN", "")
+JOPLIN_SERVER_USER = os.environ.get("JOPLIN_SERVER_USER", "")
+JOPLIN_SERVER_PASSWORD = os.environ.get("JOPLIN_SERVER_PASSWORD", "")
 NOTEBOOK_ID = os.environ.get("NOTEBOOK_ID", "")
 
 HTML_FORM = """
@@ -30,7 +33,7 @@ HTML_FORM = """
     </style>
 </head>
 <body>
-    <h1>���️ Голосовая заметка</h1>
+    <h1>🎙️ Голосовая заметка</h1>
     <p>Нажмите «Записать», говорите, затем «Стоп».</p>
     <div>
         <button id="record">Записать</button>
@@ -88,7 +91,7 @@ HTML_FORM = """
             mediaRecorder.start();
             recordButton.disabled = true;
             stopButton.disabled = false;
-            status.textContent = '��� Идет запись...';
+            status.textContent = '🔴 Идет запись...';
             status.className = '';
         } catch (err) {
             status.textContent = '❌ Не удалось получить доступ к микрофону: ' + err.message;
@@ -124,11 +127,17 @@ def upload_audio():
         tmp_path = tmp.name
 
     try:
+        # 1. Распознавание речи через Whisper
+        headers = {}
+        if WHISPER_API_KEY:
+            headers["Authorization"] = f"Bearer {WHISPER_API_KEY}"
+
         with open(tmp_path, 'rb') as f:
             whisper_response = requests.post(
                 WHISPER_URL,
                 files={'file': f},
                 data={'model': 'base', 'language': 'ru'},
+                headers=headers,
                 timeout=120
             )
         whisper_response.raise_for_status()
@@ -137,15 +146,22 @@ def upload_audio():
         if not transcription:
             return {"error": "Не удалось распознать речь"}, 500
 
-        api = ClientApi(token=JOPLIN_API_TOKEN, url=JOPLIN_SERVER_URL)
+        # 2. Создание заметки в Joplin Server через ServerApi
+        api = ServerApi(
+            user=JOPLIN_SERVER_USER,
+            password=JOPLIN_SERVER_PASSWORD,
+            url=JOPLIN_SERVER_URL
+        )
 
         title = transcription[:50] + ('...' if len(transcription) > 50 else '')
 
-        note_id = api.add_note(
-            title=title if title else "Голосовая заметка",
-            body=transcription,
-            parent_id=NOTEBOOK_ID if NOTEBOOK_ID else None
-        )
+        # ServerApi требует блокировку синхронизации для операций записи
+        with api.sync_lock():
+            note_id = api.add_note(
+                title=title if title else "Голосовая заметка",
+                body=transcription,
+                parent_id=NOTEBOOK_ID if NOTEBOOK_ID else None
+            )
 
         return {"title": title, "note_id": note_id}, 200
 

@@ -22,7 +22,7 @@ services:
 
   # --- Веб-приложение для записи с телефона ---
   voice-web:
-    build: ./voice-app
+    build: .
     container_name: voice-web
     restart: unless-stopped
     networks:
@@ -35,5 +35,7 @@ services:
       - WHISPER_URL=http://whisper:9000/v1/audio/transcriptions
       # ⚠️ Укажите реальный адрес ВАШЕГО Joplin Server
       - JOPLIN_SERVER_URL=${JOPLIN_SERVER_URL}
-      - JOPLIN_API_TOKEN=${JOPLIN_API_TOKEN}
+      - JOPLIN_SERVER_USER=${JOPLIN_SERVER_USER}
+      - JOPLIN_SERVER_PASSWORD=${JOPLIN_SERVER_PASSWORD}
       - NOTEBOOK_ID=${NOTEBOOK_ID}
+      - WHISPER_API_KEY=${WHISPER_API_KEY}
