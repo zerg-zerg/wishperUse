@@ -39,3 +39,9 @@ services:
       - JOPLIN_SERVER_PASSWORD=${JOPLIN_SERVER_PASSWORD}
       - NOTEBOOK_ID=${NOTEBOOK_ID}
       - WHISPER_API_KEY=${WHISPER_API_KEY}
+      # Публичный HTTPS-адрес (TLS завершается на роутере/прокси).
+      # Нужен для корректного manifest и service worker.
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://test}
+      # Опционально: переопределение модели и языка распознавания
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-ru}
